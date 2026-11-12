@@ -13,7 +13,7 @@ only the starter kit, not the parent site's Jekyll documentation.
 
 | Challenge | Starting point | Your task |
 | --- | --- | --- |
-| A: The Pledge | `contracts/Pledge.sol` and `test/Pledge.t.sol` | Stake practice ETH on a goal. A referee confirms success by the deadline; otherwise the stake goes to charity after the deadline. Extend the working baseline with your own idea. |
+| A: The Pledge | `contracts/Pledge.sol` and `test/Pledge.t.sol` | Stake practice ETH on a goal. A referee confirms success strictly before the deadline; otherwise the stake can go to charity at or after the deadline. Extend the working baseline with your own idea. |
 | B: The Commons | `contracts/Commons.sol`, `commons/`, and `test/Commons.t.sol` | A shared resource regrows each round and collapses if overharvested. Design an on-chain mechanism that keeps it alive. |
 | C: Leashed Agent | `contracts/PolicyWallet.sol`, `agent/`, and `test/PolicyWallet.t.sol` | An AI agent buys mock data using an allowlisted wallet with spending limits, owner approval, pause and revocation. Extend its policies and try adversarial prompts. |
 
@@ -76,8 +76,12 @@ For a browser-only demo, copy `contracts/Pledge.sol` into Remix, compile and
 deploy using **Remix VM**, not a production wallet. Select different VM
 accounts for pledger, referee and charity. Supply a practice ETH value when
 calling `create(goal, durationSeconds, referee, charity)`. Only the referee can
-call `confirm` at or before the deadline. After the deadline, anyone can call
+call `confirm` strictly before the deadline. At or after the deadline, anyone can call
 `release` for an active pledge. A settled pledge cannot pay out twice.
+
+The boundary is exclusive for confirmation (`block.timestamp < deadline`) and
+inclusive for release (`block.timestamp >= deadline`). Tests cover one second
+before, exactly at, and one second after the deadline.
 
 ## Challenge B: The Commons
 

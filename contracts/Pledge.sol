@@ -43,7 +43,7 @@ contract Pledge {
     function confirm(uint256 id) external {
         Commitment storage p = pledges[id];
         require(msg.sender == p.referee, "Only the referee can confirm");
-        require(block.timestamp <= p.deadline, "The deadline has passed");
+        require(block.timestamp < p.deadline, "The deadline has been reached");
         require(p.status == Status.Active, "The pledge is already settled");
         p.status = Status.Succeeded;
         emit Succeeded(id);
@@ -52,7 +52,7 @@ contract Pledge {
 
     function release(uint256 id) external {
         Commitment storage p = pledges[id];
-        require(block.timestamp > p.deadline, "The deadline has not passed yet");
+        require(block.timestamp >= p.deadline, "The deadline has not been reached yet");
         require(p.status == Status.Active, "The pledge is already settled");
         p.status = Status.Failed;
         emit Failed(id);

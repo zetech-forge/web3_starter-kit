@@ -119,19 +119,37 @@ contract PledgeTest is Test {
         pledge.release(id);
     }
 
-    function test_RefereeCanConfirmAtTheDeadline() public {
+    function test_RefereeCanConfirmOneSecondBeforeTheDeadline() public {
         uint256 id = _create();
-        vm.warp(block.timestamp + ONE_WEEK);
+        vm.warp(block.timestamp + ONE_WEEK - 1);
         vm.prank(referee);
         pledge.confirm(id);
         assertEq(pledger.balance, 10 ether);
     }
 
-    function test_RevertWhen_ReleasedAtTheDeadline() public {
+    function test_RevertWhen_ConfirmAtTheDeadline() public {
         uint256 id = _create();
         vm.warp(block.timestamp + ONE_WEEK);
-        vm.expectRevert();
+        vm.prank(referee);
+        vm.expectRevert("The deadline has been reached");
+        pledge.confirm(id);
+    }
+
+    function test_RevertWhen_ReleasedOneSecondBeforeTheDeadline() public {
+        uint256 id = _create();
+        vm.warp(block.timestamp + ONE_WEEK - 1);
+        vm.expectRevert("The deadline has not been reached yet");
         pledge.release(id);
+    }
+
+    function test_ReleaseAtTheDeadlinePaysTheCharity() public {
+        uint256 id = _create();
+        vm.warp(block.timestamp + ONE_WEEK);
+        vm.prank(stranger);
+        pledge.release(id);
+        assertEq(charity.balance, STAKE);
+        (,,,,,, Pledge.Status status) = pledge.pledges(id);
+        assertEq(uint256(status), uint256(Pledge.Status.Failed));
     }
 
     function test_RevertWhen_ReleasedTwice() public {
