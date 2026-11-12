@@ -11,11 +11,11 @@ only the starter kit, not the parent site's Jekyll documentation.
 
 ## Three challenges
 
-| Challenge | Starting point | Your task |
-| --- | --- | --- |
-| A: The Pledge | `contracts/Pledge.sol` and `test/Pledge.t.sol` | Stake practice ETH on a goal. A referee confirms success strictly before the deadline; otherwise the stake can go to charity at or after the deadline. Extend the working baseline with your own idea. |
-| B: The Commons | `contracts/Commons.sol`, `commons/`, and `test/Commons.t.sol` | A shared resource regrows each round and collapses if overharvested. Design an on-chain mechanism that keeps it alive. |
-| C: Leashed Agent | `contracts/PolicyWallet.sol`, `agent/`, and `test/PolicyWallet.t.sol` | An AI agent buys mock data using an allowlisted wallet with spending limits, owner approval, pause and revocation. Extend its policies and try adversarial prompts. |
+| Challenge | Difficulty | Starting point | Your task |
+| --- | --- | --- | --- |
+| A: The Pledge | Beginner | `contracts/Pledge.sol` and `test/Pledge.t.sol` | Stake practice ETH on a goal. A referee confirms success strictly before the deadline; otherwise the stake can go to charity at or after the deadline. Adapt and demonstrate the working baseline. |
+| B: The Commons | Intermediate | `contracts/Commons.sol`, `commons/`, and `test/Commons.t.sol` | A shared resource regrows each round and collapses if overharvested. Design an on-chain mechanism that keeps it alive. |
+| C: Leashed Agent | Advanced | `contracts/PolicyWallet.sol`, `agent/`, and `test/PolicyWallet.t.sol` | An AI agent buys mock data using an allowlisted wallet with spending limits, owner approval, pause and revocation. Configure and demonstrate its policies and try adversarial prompts. |
 
 Unlike the original exercises, the Pledge and PolicyWallet TODOs are completed
 here so the existing tests provide a passing baseline. The Commons intentionally
@@ -150,11 +150,18 @@ npm run owner -- pause
 npm run owner -- unpause
 npm run owner -- revoke
 npm run owner -- approve 0
-npm run owner -- allow <payee-address>
-npm run owner -- block <payee-address>
-npm run owner -- agent <new-agent-address>
+npm run owner -- allow PAYEE_ADDRESS
+npm run owner -- block PAYEE_ADDRESS
+npm run owner -- agent NEW_AGENT_ADDRESS
 npx hardhat test solidity test/PolicyWallet.t.sol
 ```
+
+These are separate examples, not a sequence to run blindly. Replace
+`PAYEE_ADDRESS` and `NEW_AGENT_ADDRESS` with the intended local test addresses;
+replace `0` with an existing pending request ID. Requesting does not pay:
+the agent submits `requestPayment()`, then the owner calls `approve()` in a
+separate on-chain transaction. This is not an off-chain co-signature.
+After revocation, restore the local agent or redeploy before continuing.
 
 For a local model, run `ollama pull qwen2.5:3b` and ensure Ollama is running.
 Leave `LLM_FAKE` unset (or set to `0`). The default endpoint is
