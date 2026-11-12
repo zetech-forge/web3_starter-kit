@@ -1,0 +1,32 @@
+{
+  "name": "zetech-web3-starter-kit",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "build": "hardhat build",
+    "test": "hardhat test",
+    "chain": "hardhat node --hostname 127.0.0.1",
+    "deploy:commons": "hardhat run scripts/deploy-commons.ts --network localhost",
+    "build:game": "esbuild commons/web/src/game.js --bundle --format=esm --target=es2020 --minify --outfile=commons/web/game.bundle.js",
+    "pregame": "npm run build:game",
+    "game": "node commons/serve.mjs",
+    "deploy:agent": "hardhat run scripts/deploy-policy-wallet.ts --network localhost",
+    "data-api": "node agent/data-api.mjs",
+    "agent": "node agent/agent.mjs",
+    "owner": "node agent/owner.mjs"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.7",
+    "@types/node": "^22.20.5",
+    "esbuild": "^0.28.2",
+    "forge-std": "github:foundry-rs/forge-std#v1.16.2",
+    "hardhat": "^3.19.0",
+    "typescript": "~6.0.3",
+    "uqr": "^0.1.3",
+    "viem": "^2.57.4"
+  }
+}

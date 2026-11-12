@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a1c26">
+<title>The Commons</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230a1c26'/%3E%3Cpath d='M6 17c4-6 10-6 14 0-4 6-10 6-14 0zm14 0l6-4v8z' fill='%232bb3d9'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #0a1c26;
+    --card: #11303e;
+    --card-deep: #0b2431;
+    --text: #e9f5f9;
+    --muted: #93b5c4;
+    --water: #2bb3d9;
+    --water-deep: #1b7fa6;
+    --low: #f2b84b;
+    --danger: #ef5b5b;
+    --me: #f4c95d;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  main {
+    max-width: 540px;
+    margin: 0 auto;
+    padding: 16px 16px calc(96px + env(safe-area-inset-bottom));
+    display: grid;
+    gap: 12px;
+  }
+  h1, h2 { margin: 0; line-height: 1.2; }
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 0.85rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  p { margin: 0; }
+  .card { background: var(--card); border-radius: var(--radius); padding: 16px; display: grid; gap: 12px; }
+  .muted { color: var(--muted); }
+  .topline { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .pill { background: var(--card-deep); color: var(--muted); border-radius: 999px; padding: 4px 12px; font-weight: 600; white-space: nowrap; }
+
+  .gauge { position: relative; height: 40px; background: var(--card-deep); border-radius: 10px; overflow: hidden; }
+  .gauge-fill {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(180deg, var(--water), var(--water-deep));
+    transition: width 0.6s ease, background 0.3s;
+  }
+  body[data-lake="low"] .gauge-fill { background: linear-gradient(180deg, var(--low), #c98f22); }
+  body[data-lake="collapsed"] .gauge-fill { background: linear-gradient(180deg, var(--danger), #b83a3a); }
+  .gauge-line { position: absolute; top: 0; bottom: 0; width: 3px; background: var(--danger); }
+  .stock-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  #stock { font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+  .timer { height: 6px; background: var(--card-deep); border-radius: 3px; overflow: hidden; }
+  #timer-fill { height: 100%; width: 100%; background: var(--muted); transition: width 0.25s linear; }
+  .legend { display: flex; gap: 8px; align-items: center; font-size: 0.85rem; }
+  .legend::before { content: ""; width: 14px; height: 3px; background: var(--danger); display: inline-block; }
+
+  .rules { margin: 0; padding-left: 1.3rem; display: grid; gap: 6px; }
+  form { display: grid; gap: 10px; }
+  label, legend { font-weight: 600; }
+  input[type="text"] {
+    width: 100%;
+    font: inherit;
+    padding: 14px;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    background: #fff;
+    color: #0a1c26;
+  }
+  input[type="range"] { width: 100%; accent-color: var(--water); margin: 4px 0 0; }
+  fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 10px; }
+  button {
+    font: inherit;
+    font-weight: 700;
+    min-height: 48px;
+    border-radius: 12px;
+    border: 0;
+    padding: 12px 16px;
+    cursor: pointer;
+    background: var(--card-deep);
+    color: var(--text);
+  }
+  button.primary { background: var(--water); color: #04131a; font-size: 1.1rem; }
+  button:disabled { background: #2c4a57; color: var(--muted); cursor: default; }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--me); outline-offset: 2px; }
+  .picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); gap: 8px; }
+  .picks button[aria-pressed="true"] { background: var(--water); color: #04131a; }
+  .me-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .me-row strong { font-size: 1.15rem; }
+
+  #board { margin: 0; padding-left: 1.8rem; display: grid; gap: 6px; font-variant-numeric: tabular-nums; }
+  #board li > span { display: flex; justify-content: space-between; gap: 12px; }
+  #board li .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #board li.me { color: var(--me); font-weight: 700; }
+
+  svg.chart { width: 100%; height: auto; display: block; }
+  svg.chart .grid { stroke: #24485a; stroke-width: 1; }
+  svg.chart .floor { stroke: var(--danger); stroke-width: 1.5; stroke-dasharray: 4 3; }
+  svg.chart .axis { fill: var(--muted); font-size: 10px; }
+  svg.chart .area { fill: var(--water); opacity: 0.18; }
+  svg.chart .line { fill: none; stroke: var(--water); stroke-width: 2.5; stroke-linejoin: round; }
+  svg.chart .dot { fill: var(--text); }
+  body[data-lake="collapsed"] svg.chart .line { stroke: var(--danger); }
+  body[data-lake="collapsed"] svg.chart .area { fill: var(--danger); }
+
+  #qr svg { width: 100%; max-width: 340px; background: #fff; border-radius: 12px; display: block; }
+  #join-url { font-size: 1.5rem; font-weight: 700; word-break: break-all; }
+
+  .banner { position: sticky; top: 0; z-index: 5; background: var(--low); color: #1d1300; padding: 12px 16px; font-weight: 600; text-align: center; }
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    width: min(500px, calc(100% - 32px));
+    background: #e9f5f9;
+    color: #0a1c26;
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-weight: 600;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+    z-index: 10;
+  }
+  .toast.error { background: var(--danger); color: #fff; }
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(120, 20, 20, 0.9);
+  }
+  .overlay-card { max-width: 520px; text-align: center; display: grid; gap: 14px; }
+  .overlay-title { font-size: 2rem; font-weight: 800; }
+  .overlay button { background: #fff; color: #5a0f0f; }
+
+  body.host { font-size: 18px; }
+  body.host main {
+    max-width: 1600px;
+    height: 100vh;
+    padding: 20px;
+    grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas: "lake host" "summary host" "chart board";
+    gap: 16px;
+  }
+  body.host #lake { grid-area: lake; }
+  body.host #summary-card { grid-area: summary; }
+  body.host #host { grid-area: host; justify-items: center; align-content: center; text-align: center; gap: 8px; }
+  body.host #chart-card { grid-area: chart; display: flex; flex-direction: column; min-height: 0; }
+  body.host #board-card { grid-area: board; min-height: 0; overflow: hidden; align-content: start; }
+  body.host svg.chart { flex: 1; min-height: 0; height: 100%; }
+  body.host svg.chart .axis { font-size: max(14px, 1.5vh); }
+  body.host svg.chart .line { stroke-width: 4; }
+  body.host svg.chart .floor { stroke-width: 2; }
+  body.host #qr svg { max-width: 220px; }
+  body.host #join-url { font-size: 1.3rem; }
+  body.host h1 { font-size: 2.2rem; }
+  body.host .gauge { height: 56px; }
+  body.host .timer { height: 10px; }
+  body.host #stock { font-size: 2.3rem; }
+  body.host #summary { font-size: 1.25rem; }
+  body.host .overlay-title { font-size: 4rem; }
+  body.host .overlay-card { max-width: 900px; font-size: 1.6rem; }
+  @media (max-width: 900px), (max-height: 560px) {
+    body.host main {
+      height: auto;
+      grid-template-columns: 1fr;
+      grid-template-rows: none;
+      grid-template-areas: "lake" "host" "summary" "chart" "board";
+    }
+    body.host svg.chart { height: 260px; flex: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body data-lake="ok">
+<div id="offline" class="banner" role="alert" hidden>Can't reach the game server. Check you're on the same wifi as the host laptop.</div>
+
+<div id="collapse-overlay" class="overlay" role="alertdialog" aria-labelledby="collapse-title" hidden>
+  <div class="overlay-card">
+    <div class="overlay-title" id="collapse-title">The lake has collapsed</div>
+    <p id="collapse-detail"></p>
+    <p>Nobody catches anything ever again.</p>
+    <button type="button" id="overlay-close">See the results</button>
+  </div>
+</div>
+
+<main>
+  <section class="card" id="lake" aria-labelledby="title">
+    <div class="topline">
+      <h1 id="title">The Commons</h1>
+      <span class="pill" id="round-label">Round 1</span>
+    </div>
+    <div class="gauge" id="gauge" role="img" aria-label="Loading the lake">
+      <div class="gauge-fill" id="gauge-fill"></div>
+      <div class="gauge-line" id="gauge-line"></div>
+    </div>
+    <div class="stock-row">
+      <strong id="stock">Loading...</strong>
+      <span class="muted" id="trend"></span>
+    </div>
+    <div class="timer" aria-hidden="true"><div id="timer-fill"></div></div>
+    <div class="stock-row">
+      <span class="muted" id="timer-text"></span>
+      <span class="legend muted">collapse line</span>
+    </div>
+  </section>
+
+  <section class="card" id="join" data-view hidden>
+    <h2>How to play</h2>
+    <ol class="rules">
+      <li>Everyone fishes the same lake.</li>
+      <li>Each round you can take up to <strong id="rule-max">50</strong> fish.</li>
+      <li>The lake regrows between rounds, fastest when it is about half full.</li>
+      <li>If it drops below the red line, it is gone for everyone, for good.</li>
+    </ol>
+    <form id="join-form">
+      <label for="name">Your name</label>
+      <input id="name" type="text" maxlength="24" required autocomplete="off" autocapitalize="words" enterkeyhint="go">
+      <button type="submit" class="primary" id="join-button">Join the game</button>
+    </form>
+  </section>
+
+  <section class="card" id="play" data-view hidden>
+    <div class="me-row">
+      <strong id="me-name"></strong>
+      <span class="muted" id="me-total"></span>
+    </div>
+    <fieldset>
+      <legend>How many fish do you take this round?</legend>
+      <div class="picks" id="picks"></div>
+      <input id="amount" type="range" min="1" step="1" aria-label="Fish to take">
+    </fieldset>
+    <button type="button" class="primary" id="harvest">Take fish</button>
+    <p class="muted" id="play-note" aria-live="polite"></p>
+  </section>
+
+  <section class="card" id="host" data-view hidden>
+    <h2>Scan to join</h2>
+    <div id="qr"></div>
+    <div id="join-url"></div>
+    <p class="muted" id="player-count"></p>
+  </section>
+
+  <section class="card" id="summary-card">
+    <h2>Last round</h2>
+    <p id="summary" aria-live="polite">No rounds finished yet.</p>
+  </section>
+
+  <section class="card" id="chart-card">
+    <h2>Fish in the lake, round by round</h2>
+    <svg class="chart" id="chart" viewBox="0 0 320 160" role="img" aria-label="Fish in the lake over time"></svg>
+  </section>
+
+  <section class="card" id="board-card">
+    <h2>Top fishers</h2>
+    <ol id="board"></ol>
+    <p class="muted" id="board-more"></p>
+  </section>
+</main>
+
+<div id="message" class="toast" role="status" aria-live="polite" hidden></div>
+<script type="module" src="/game.bundle.js"></script>
+</body>
+</html>

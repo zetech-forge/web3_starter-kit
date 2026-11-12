@@ -1,0 +1,16 @@
+node_modules/
+artifacts/
+cache/
+dist/
+types/
+coverage/
+deployments/
+.env
+.env.*
+!.env.example
+commons/web/game.bundle.js
+*.tsbuildinfo
+*.log
+tmp/
+temp/
+.DS_Store
