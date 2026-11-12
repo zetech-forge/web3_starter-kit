@@ -4,6 +4,14 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {Commons} from "../contracts/Commons.sol";
 
+contract ReserveCommons is Commons {
+    constructor() Commons(1000, 100, 50, 30, 50) {}
+
+    function _mechanism(address, uint256 amount) internal view override {
+        require(stock - amount >= 950, "Protected reserve");
+    }
+}
+
 contract CommonsTest is Test {
     Commons commons;
 
@@ -98,6 +106,87 @@ contract CommonsTest is Test {
         vm.prank(amina);
         commons.harvest(1);
         assertEq(commons.stock(), expected - 1);
+    }
+
+    function _slowCommons() internal returns (Commons lake) {
+        lake = new Commons(1_000_000, COLLAPSE_BELOW, 1, ROUND_SECONDS, 500_000);
+        vm.startPrank(amina);
+        lake.join("Amina");
+        lake.harvest(500_000);
+        vm.stopPrank();
+    }
+
+    function _slowGrowth(uint256 stock, uint256 rounds) internal pure returns (uint256) {
+        for (uint256 i = 0; i < rounds; i++) {
+            stock += stock * (1_000_000 - stock) / (1_000_000 * 100);
+        }
+        return stock;
+    }
+
+    function test_CatchesUpMoreThan100MissedRounds() public {
+        Commons lake = _slowCommons();
+        vm.warp(lake.startTime() + 150 * ROUND_SECONDS);
+        uint256 expected = _slowGrowth(500_000, 150);
+        assertGt(expected, _slowGrowth(500_000, 100));
+        assertEq(lake.stockNow(), expected);
+    }
+
+    function test_LongIdleHarvestDoesNotSkipRegeneration() public {
+        Commons lake = _slowCommons();
+        vm.warp(lake.startTime() + 150 * ROUND_SECONDS);
+        vm.prank(amina);
+        lake.harvest(1);
+        uint256 expected = _slowGrowth(500_000, 150) - 1;
+        assertEq(lake.stock(), expected);
+        assertEq(lake.syncedRound(), 150);
+        vm.warp(lake.startTime() + 151 * ROUND_SECONDS);
+        assertEq(lake.stockNow(), _slowGrowth(expected, 1));
+    }
+
+    function test_LongIdleStopsAtAnIntegerGrowthFixedPoint() public {
+        vm.prank(amina);
+        commons.harvest(BOAT);
+        vm.warp(commons.startTime() + 1_000_000 * ROUND_SECONDS);
+        assertEq(commons.stockNow(), 998);
+        vm.prank(amina);
+        commons.harvest(1);
+        assertEq(commons.stock(), 997);
+        assertEq(commons.syncedRound(), 1_000_000);
+    }
+
+    function test_CustomMechanismRejectsDirectHarvestCalls() public {
+        ReserveCommons protectedLake = new ReserveCommons();
+        vm.startPrank(amina);
+        protectedLake.join("Amina");
+        protectedLake.harvest(50);
+        vm.stopPrank();
+        vm.startPrank(brian);
+        protectedLake.join("Brian");
+        vm.expectRevert("Protected reserve");
+        protectedLake.harvest(1);
+        vm.stopPrank();
+        assertEq(protectedLake.stock(), 950);
+        assertEq(protectedLake.harvestedBy(brian), 0);
+    }
+
+    function test_CollapseThresholdIsStrictlyBelowTheThreshold() public {
+        Commons lake = new Commons(1000, 100, 50, 30, 1000);
+        vm.startPrank(amina);
+        lake.join("Amina");
+        lake.harvest(900);
+        vm.stopPrank();
+        assertEq(lake.stock(), 100);
+        assertFalse(lake.collapsed());
+        vm.startPrank(brian);
+        lake.join("Brian");
+        lake.harvest(1);
+        vm.stopPrank();
+        assertTrue(lake.collapsed());
+        vm.warp(lake.startTime() + 150 * ROUND_SECONDS);
+        assertEq(lake.stockNow(), 99);
+        vm.prank(amina);
+        vm.expectRevert("The commons has collapsed");
+        lake.harvest(1);
     }
 
     function test_CollapsesForGoodBelowTheThreshold() public {

@@ -2,8 +2,6 @@
 pragma solidity ^0.8.24;
 
 contract Commons {
-    uint256 public constant MAX_CATCH_UP_ROUNDS = 100;
-
     uint256 public immutable capacity;
     uint256 public immutable collapseBelow;
     uint256 public immutable growthPercent;
@@ -81,7 +79,7 @@ contract Commons {
     }
 
     function stockNow() public view returns (uint256) {
-        return _grow(stock, _roundsToCatchUp());
+        return _grow(stock, currentRound() - syncedRound);
     }
 
     function scoreboard()
@@ -108,15 +106,12 @@ contract Commons {
         syncedRound = currentRound();
     }
 
-    function _roundsToCatchUp() internal view returns (uint256 rounds) {
-        rounds = currentRound() - syncedRound;
-        if (rounds > MAX_CATCH_UP_ROUNDS) rounds = MAX_CATCH_UP_ROUNDS;
-    }
-
     function _grow(uint256 s, uint256 rounds) internal view returns (uint256) {
         if (collapsed) return s;
         for (uint256 i = 0; i < rounds; i++) {
-            s += s * growthPercent * (capacity - s) / (capacity * 100);
+            uint256 growth = s * growthPercent * (capacity - s) / (capacity * 100);
+            if (growth == 0) break;
+            s += growth;
         }
         return s;
     }

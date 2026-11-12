@@ -83,7 +83,17 @@ The boundary is exclusive for confirmation (`block.timestamp < deadline`) and
 inclusive for release (`block.timestamp >= deadline`). Tests cover one second
 before, exactly at, and one second after the deadline.
 
+Demonstrate success and failure using **separate pledges**. Goal achievement
+depends on the referee: the blockchain cannot independently verify it.
+The contract accepts a nonzero charity address but **does not verify that it
+belongs to a registered charity**. Use only sandbox addresses.
+
 ## Challenge B: The Commons
+
+Regeneration processes all missed rounds without truncating at 100. It stops
+early at an integer-growth fixed point, where further rounds cannot change
+stock; rounding can leave stock slightly below capacity. Large custom
+capacities with unusually slow growth need gas assessment before use.
 
 With the practice chain running, use two more terminals:
 
@@ -144,6 +154,21 @@ one-hour window, and owner approval for payments above 0.02 ETH. Explicit
 owner-approved requests are outside the autonomous budget, matching the
 original tests. Approval rechecks the payee allowlist, rejects repeat
 settlement, and is blocked while paused.
+
+Exactly 0.02 ETH per autonomous payment and exactly 0.05 ETH cumulative
+autonomous spend are allowed; one wei above either boundary is rejected.
+The window starts at deployment and resets on the next successful autonomous
+payment at least 3,600 seconds after its start. It is not a rolling window or
+aligned to clock hours. A reverted payment rolls any attempted reset back.
+Owner-approved payments neither consume nor reset the autonomous budget.
+
+Only the **owner** changes policy; the **agent** signs payments/requests with
+its own account; **approved recipients** receive funds without gaining policy
+authority. Never pass the owner's key to the agent or model. Public local
+Hardhat accounts provide a sandbox, not secret-key isolation for real funds.
+Pause blocks payments, requests and approvals. Revocation blocks new agent
+payments/requests but leaves existing requests available for owner approval
+while unpaused and still allowlisted.
 
 ```bash
 npm run owner -- pause

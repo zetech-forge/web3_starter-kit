@@ -67,6 +67,27 @@ describe("Commons page history", () => {
     assert.deepEqual(quickPicks(3n), [1, 2, 3]);
   });
 
+  it("matches slow contract regeneration after more than 100 missed rounds", async () => {
+    const { viem, networkHelpers } = await network.create();
+    const [, player] = await viem.getWalletClients();
+    const slowRules = { capacity: 1_000_000n, collapseBelow: 100n, growthPercent: 1n };
+    const commons = await viem.deployContract("Commons", [
+      slowRules.capacity,
+      slowRules.collapseBelow,
+      slowRules.growthPercent,
+      30n,
+      500_000n,
+    ]);
+    await commons.write.join(["Player"], { account: player.account });
+    await commons.write.harvest([500_000n], { account: player.account });
+    await networkHelpers.time.increase(150 * 30);
+    const round = await commons.read.currentRound();
+    const events = await commons.getEvents.Harvested({}, { fromBlock: 0n });
+    const rounds = buildRounds(slowRules, events.map((e) => e.args), round);
+    assert.ok(round >= 150n);
+    assert.equal(rounds.at(-1)?.end, await commons.read.stockNow());
+  });
+
   it("matches the deployed contract round after round", async () => {
     const { viem, networkHelpers } = await network.create();
     const [, amina, brian] = await viem.getWalletClients();

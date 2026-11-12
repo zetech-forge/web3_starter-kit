@@ -4,6 +4,36 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {Pledge} from "../contracts/Pledge.sol";
 
+contract SettlementReceiver {
+    Pledge public immutable pledge;
+    uint256 public id;
+    bool public rejectPayment;
+    bool public callbackSucceeded;
+    Pledge.Status public observedStatus;
+
+    constructor(Pledge pledge_) {
+        pledge = pledge_;
+    }
+
+    function create(address referee, address charity) external {
+        id = pledge.create{value: 1 ether}("Callback test", 1 weeks, referee, charity);
+    }
+
+    function track(uint256 id_) external {
+        id = id_;
+    }
+
+    function setRejectPayment(bool reject_) external {
+        rejectPayment = reject_;
+    }
+
+    receive() external payable {
+        require(!rejectPayment, "Recipient rejects transfer");
+        (,,,,,, observedStatus) = pledge.pledges(id);
+        (callbackSucceeded,) = address(pledge).call(abi.encodeCall(Pledge.release, (id)));
+    }
+}
+
 contract PledgeTest is Test {
     Pledge pledge;
 
@@ -158,5 +188,60 @@ contract PledgeTest is Test {
         pledge.release(id);
         vm.expectRevert();
         pledge.release(id);
+    }
+
+    function test_SuccessAndFailureSettleSeparatePledges() public {
+        uint256 successful = _create();
+        uint256 failed = _create();
+        vm.prank(referee);
+        pledge.confirm(successful);
+        vm.warp(block.timestamp + ONE_WEEK);
+        pledge.release(failed);
+        (,,,,,, Pledge.Status successStatus) = pledge.pledges(successful);
+        (,,,,,, Pledge.Status failedStatus) = pledge.pledges(failed);
+        assertEq(uint256(successStatus), uint256(Pledge.Status.Succeeded));
+        assertEq(uint256(failedStatus), uint256(Pledge.Status.Failed));
+        assertEq(charity.balance, STAKE);
+        assertEq(address(pledge).balance, 0);
+    }
+
+    function test_ConfirmationUpdatesStateBeforeTransferAndRollsBackOnFailure() public {
+        SettlementReceiver receiver = new SettlementReceiver(pledge);
+        vm.deal(address(receiver), STAKE);
+        receiver.create(referee, charity);
+        uint256 id = receiver.id();
+        receiver.setRejectPayment(true);
+        vm.prank(referee);
+        vm.expectRevert("Transfer failed");
+        pledge.confirm(id);
+        (,,,,,, Pledge.Status status) = pledge.pledges(id);
+        assertEq(uint256(status), uint256(Pledge.Status.Active));
+        assertEq(address(pledge).balance, STAKE);
+        receiver.setRejectPayment(false);
+        vm.prank(referee);
+        pledge.confirm(id);
+        assertEq(uint256(receiver.observedStatus()), uint256(Pledge.Status.Succeeded));
+        assertFalse(receiver.callbackSucceeded());
+        assertEq(address(receiver).balance, STAKE);
+    }
+
+    function test_ReleaseUpdatesStateBeforeTransferAndRejectsCallbackSettlement() public {
+        SettlementReceiver receiver = new SettlementReceiver(pledge);
+        vm.prank(pledger);
+        uint256 id = pledge.create{value: STAKE}("Charity callback test", ONE_WEEK, referee, address(receiver));
+        receiver.track(id);
+        receiver.setRejectPayment(true);
+        vm.warp(block.timestamp + ONE_WEEK);
+        vm.expectRevert("Transfer failed");
+        pledge.release(id);
+        (,,,,,, Pledge.Status status) = pledge.pledges(id);
+        assertEq(uint256(status), uint256(Pledge.Status.Active));
+        assertEq(address(pledge).balance, STAKE);
+        receiver.setRejectPayment(false);
+        pledge.release(id);
+        assertEq(uint256(receiver.observedStatus()), uint256(Pledge.Status.Failed));
+        assertFalse(receiver.callbackSucceeded());
+        assertEq(address(receiver).balance, STAKE);
+        assertEq(address(pledge).balance, 0);
     }
 }
